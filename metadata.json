@@ -1,0 +1,6 @@
+{
+  "name": "Business Loss Detection and Decision Support System",
+  "description": "Rule-based analytics and loss detection web application for retail businesses using Flask, MySQL, Pandas, and Chart.js.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

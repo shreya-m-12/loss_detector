@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block page_title %}System Diagnostic & Internal Error (500){% endblock %}
+
+{% block content %}
+<div class="empty-state-card" style="border-color: #fecdd3; background: #fff1f2;">
+  <div class="empty-icon">⚠️</div>
+  <h3 class="empty-title" style="color: #9f1239;">500 - Server Diagnostic Notice</h3>
+  <p class="empty-desc" style="color: #4c0519; text-align: left; max-width: 500px; margin: 0 auto 20px auto;">
+    An operational error occurred while processing your request. If this is a database connectivity issue, please verify the following:
+  </p>
+  <div style="background: #ffffff; border: 1px solid #fecdd3; border-radius: var(--radius-sm); padding: 14px 18px; text-align: left; font-size: 0.82rem; color: #1e293b; max-width: 500px; margin: 0 auto 20px auto;">
+    <ul style="padding-left: 18px; line-height: 1.5;">
+      <li>Is the MySQL service running on the host?</li>
+      <li>Are the credentials in <code>.env</code> (DB_HOST, DB_USER, DB_PASSWORD) matching?</li>
+      <li>Did you run <code>python init_db.py</code> to initialize the schema and tables?</li>
+      <li>Check the <a href="{{ url_for('data_mgmt.health') }}" target="_blank" style="color: var(--primary); font-weight: 600;">/health</a> endpoint to view connection diagnostics.</li>
+    </ul>
+  </div>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Return to Dashboard</a>
+</div>
+{% endblock %}

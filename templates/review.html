@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block page_title %}Staged Data Audit & Validation Review (Step 2 of 2){% endblock %}
+{% block page_subtitle %}
+  Review accepted vs rejected rows before committing to MySQL. No records have been written yet.
+{% endblock %}
+
+{% block content %}
+<!-- Validation Metrics Overview -->
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+  <div class="kpi-card neutral">
+    <div class="kpi-header"><span class="kpi-title">Total Rows Parsed</span></div>
+    <div class="kpi-value">{{ total_rows }}</div>
+    <div class="kpi-subtext">{{ sales_filename }} + {{ expense_filename }}</div>
+  </div>
+
+  <div class="kpi-card positive">
+    <div class="kpi-header"><span class="kpi-title">Valid Rows Accepted</span></div>
+    <div class="kpi-value" style="color: var(--color-green);">{{ accepted_count }}</div>
+    <div class="kpi-subtext">{{ sales_accepted }} sales &bull; {{ expenses_accepted }} expenses</div>
+  </div>
+
+  <div class="kpi-card {% if rejected_count > 0 %}negative{% else %}positive{% endif %}">
+    <div class="kpi-header"><span class="kpi-title">Rejected Rows</span></div>
+    <div class="kpi-value" style="color: {% if rejected_count > 0 %}var(--color-red){% else %}var(--color-green){% endif %};">{{ rejected_count }}</div>
+    <div class="kpi-subtext">{{ sales_rejected }} sales &bull; {{ expenses_rejected }} expenses</div>
+  </div>
+
+  <div class="kpi-card neutral">
+    <div class="kpi-header"><span class="kpi-title">Business Warnings</span></div>
+    <div class="kpi-value" style="color: var(--color-amber);">{{ warnings_count }}</div>
+    <div class="kpi-subtext">Accepted with operational loss flags</div>
+  </div>
+</div>
+
+<!-- Confirm or Cancel Action Bar -->
+<div class="table-card" style="padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+  <div>
+    <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-main);">
+      Ready to Commit Dataset: "{{ dataset_name }}"?
+    </h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted);">
+      {% if accepted_count > 0 %}
+        Committing will insert {{ accepted_count }} validated records in an atomic transaction and automatically execute the 6 loss detection rules.
+      {% else %}
+        <span style="color: var(--color-red); font-weight: 600;">Cannot confirm: 0 rows were accepted after validation checks.</span>
+      {% endif %}
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 12px;">
+    <form action="{{ url_for('upload.cancel', token=token) }}" method="POST" style="margin: 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <button type="submit" class="btn btn-secondary">Cancel & Discard</button>
+    </form>
+
+    <form action="{{ url_for('upload.confirm', token=token) }}" method="POST" style="margin: 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <button type="submit" class="btn btn-primary" {% if accepted_count == 0 %}disabled{% endif %}>
+        ✓ Confirm & Run Analysis
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Business Warnings (Accepted Rows with flags) -->
+{% if all_warnings %}
+  <div class="table-card" style="border-left: 4px solid var(--color-amber);">
+    <div class="table-header-bar" style="background: var(--color-amber-bg);">
+      <h3 class="table-title" style="color: #92400e;">⚠️ Validation Warnings (Rows Accepted, Flagged for Review)</h3>
+      <span class="badge badge-medium">{{ all_warnings | length }} Warnings</span>
+    </div>
+    <div style="padding: 14px 20px; max-height: 180px; overflow-y: auto;">
+      <ul style="font-size: 0.82rem; color: #78350f; line-height: 1.5; padding-left: 20px;">
+        {% for w in all_warnings %}
+          <li>{{ w }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Full Rejected Rows Audit Table -->
+{% if rejected_count > 0 %}
+  <div class="table-card" style="border-left: 4px solid var(--color-red);">
+    <div class="table-header-bar" style="background: var(--color-red-bg);">
+      <div>
+        <h3 class="table-title" style="color: #9f1239;">✕ Rejected Records Audit Log</h3>
+        <span style="font-size: 0.78rem; color: #be123c;">These rows failed schema rules and will NOT be imported into MySQL.</span>
+      </div>
+      <a href="{{ url_for('upload.download_staged_rejected_csv', token=token) }}" class="btn btn-danger btn-sm">
+        Download Rejected Rows as CSV
+      </a>
+    </div>
+    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Source File</th>
+            <th>Line #</th>
+            <th>Specific Rejection Reason</th>
+            <th>Submitted Raw Values</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in all_rejected %}
+            <tr>
+              <td><span class="badge" style="background: #f1f5f9; color: #334155;">{{ r.source_file }}</span></td>
+              <td style="font-weight: 700; color: #9f1239;">Line {{ r.line_number }}</td>
+              <td style="color: #e11d48; font-weight: 600;">{{ r.reason }}</td>
+              <td style="font-family: monospace; font-size: 0.75rem; color: #475569;">
+                {{ r.raw_data | tojson }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Accepted Sales Transactions Preview (First 20 Rows) -->
+<div class="table-card">
+  <div class="table-header-bar">
+    <div>
+      <h3 class="table-title">Accepted Sales Transactions (Preview First 20 Rows)</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Showing sample of {{ sales_accepted }} valid transactions ready for database insert</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Line</th>
+          <th>Date</th>
+          <th>Product Name</th>
+          <th>Qty Sold</th>
+          <th>Unit Price</th>
+          <th>Discount</th>
+          <th>Sales Revenue</th>
+          <th>Product Cost</th>
+          <th>Closing Stock</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in sales_preview %}
+          <tr>
+            <td style="color: #64748b;">#{{ r.line_number }}</td>
+            <td style="font-weight: 600;">{{ r.transaction_date }}</td>
+            <td>{{ r.product_name }}</td>
+            <td>{{ "{:,.1f}".format(r.quantity_sold) }}</td>
+            <td>₹{{ "{:,.2f}".format(r.selling_price) }}</td>
+            <td>₹{{ "{:,.2f}".format(r.discount_amount) }}</td>
+            <td style="font-weight: 600; color: #0d9488;">₹{{ "{:,.2f}".format(r.sales_revenue) }}</td>
+            <td>₹{{ "{:,.2f}".format(r.product_cost) }}</td>
+            <td style="font-weight: 600;">{{ "{:,.0f}".format(r.inventory_quantity) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Accepted Operating Expenses Preview -->
+<div class="table-card">
+  <div class="table-header-bar">
+    <div>
+      <h3 class="table-title">Accepted Operating Expenses (Preview First 10 Rows)</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Showing sample of {{ expenses_accepted }} valid operating expense entries</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Line</th>
+          <th>Expense Date</th>
+          <th>Category</th>
+          <th>Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in expenses_preview %}
+          <tr>
+            <td style="color: #64748b;">#{{ r.line_number }}</td>
+            <td style="font-weight: 600;">{{ r.expense_date }}</td>
+            <td><span class="badge" style="background: #f1f5f9; color: #334155;">{{ r.expense_category }}</span></td>
+            <td style="font-weight: 600; color: #e11d48;">₹{{ "{:,.2f}".format(r.expense_amount) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

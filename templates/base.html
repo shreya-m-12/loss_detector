@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Business Loss Detection & Decision Support System{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <script src="{{ url_for('static', filename='js/vendor/chart.umd.min.js') }}"></script>
+</head>
+<body class="app-body">
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-logo">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <div>
+          <h1 class="brand-title">LossDetector</h1>
+          <span class="brand-subtitle">Retail DSS & Analytics</span>
+        </div>
+      </div>
+      <button class="mobile-toggle" id="sidebarToggle" aria-label="Toggle navigation">☰</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">ANALYTICS & AUDIT</div>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+        <span class="nav-icon">📊</span>
+        <span>Executive Dashboard</span>
+      </a>
+      <a href="{{ url_for('upload.index') }}" class="nav-link {% if request.endpoint and 'upload' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">📥</span>
+        <span>Upload Dataset</span>
+      </a>
+      <a href="{{ url_for('analysis.financial_analysis') }}" class="nav-link {% if request.endpoint == 'analysis.financial_analysis' %}active{% endif %}">
+        <span class="nav-icon">📈</span>
+        <span>Financial Analysis</span>
+      </a>
+      <a href="{{ url_for('analysis.product_analysis') }}" class="nav-link {% if request.endpoint == 'analysis.product_analysis' %}active{% endif %}">
+        <span class="nav-icon">🏷️</span>
+        <span>Product Analysis</span>
+      </a>
+      <a href="{{ url_for('alerts.index') }}" class="nav-link {% if request.endpoint == 'alerts.index' %}active{% endif %}">
+        <span class="nav-icon">⚠️</span>
+        <span>Loss Detection & Alerts</span>
+      </a>
+      <a href="{{ url_for('alerts.recommendations') }}" class="nav-link {% if request.endpoint == 'alerts.recommendations' %}active{% endif %}">
+        <span class="nav-icon">💡</span>
+        <span>Recommendations</span>
+      </a>
+
+      <div class="nav-section-title">EXPORTS & SYSTEM</div>
+      <a href="{{ url_for('reports.index') }}" class="nav-link {% if request.endpoint and 'reports' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">📄</span>
+        <span>Reports & Exports</span>
+      </a>
+      <a href="{{ url_for('data_mgmt.index') }}" class="nav-link {% if request.endpoint and 'data_mgmt' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">🗄️</span>
+        <span>Data Management</span>
+      </a>
+      <a href="{{ url_for('data_mgmt.health') }}" target="_blank" class="nav-link">
+        <span class="nav-icon">🩺</span>
+        <span>System Health (/health)</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="business-badge">
+        <span class="badge-dot"></span>
+        <div class="badge-info">
+          <span class="badge-label">Store Database</span>
+          <span class="badge-name">Corner Store Mart</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div class="header-title-block">
+          <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
+          <p class="page-subtitle">{% block page_subtitle %}Financial health, cost monitoring, and automated retail loss prevention{% endblock %}</p>
+        </div>
+      </div>
+      <div class="header-right">
+        {% block header_actions %}
+          <a href="{{ url_for('upload.index') }}" class="btn btn-primary btn-sm">
+            <span>+ Upload Sales/Expenses</span>
+          </a>
+        {% endblock %}
+      </div>
+    </header>
+
+    <!-- Flash Messages -->
+    <div class="notifications-container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              <span class="alert-icon">
+                {% if category == 'success' %}✓{% elif category == 'error' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+              </span>
+              <span class="alert-text">{{ message }}</span>
+              <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Page Body -->
+    <div class="content-container">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-inner">
+        <span>Business Loss Detection and Decision Support System &bull; Academic Mini-Project</span>
+        <span>Transparent Rule-Based Analytics Engine (Python / Flask / MySQL / Chart.js)</span>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Responsive sidebar toggle
+    const toggleBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+      });
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

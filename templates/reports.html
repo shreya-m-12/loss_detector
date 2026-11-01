@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block page_title %}Executive Decision Support Reports & Data Exports{% endblock %}
+{% block page_subtitle %}Generate formal audit documentation, PDF reports, and spreadsheets with sanitized formula protection.{% endblock %}
+
+{% block content %}
+{% if not active_dataset %}
+  <div class="empty-state-card">
+    <div class="empty-icon">📄</div>
+    <h3 class="empty-title">No Active Dataset</h3>
+    <p class="empty-desc">Please upload or activate a dataset to generate executive audit reports and exports.</p>
+    <a href="{{ url_for('upload.index') }}" class="btn btn-primary">Go to Upload</a>
+  </div>
+{% else %}
+
+  <!-- Download Action Banner -->
+  <div class="table-card" style="padding: 22px 24px; background: #f0fdfa; border-color: #99f6e4; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #0f766e; margin-bottom: 4px;">
+        Formal Audit Report: {{ active_dataset.dataset_name }}
+      </h3>
+      <span style="font-size: 0.82rem; color: #115e59;">
+        Generated on {{ generated_at }} &bull; Period: {{ active_dataset.date_min }} to {{ active_dataset.date_max }}
+      </span>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="{{ url_for('reports.download_pdf') }}" class="btn btn-primary btn-lg" style="background: #0f766e;">
+        <span>📥 Download Official PDF Audit Report</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- CSV Exports Center -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <div>
+        <h3 class="table-title">Spreadsheet Exports (CSV with Formula Injection Protection)</h3>
+        <span style="font-size: 0.78rem; color: #64748b;">All cells starting with =, +, -, @ are sanitized to protect Microsoft Excel / Google Sheets from DDE attacks.</span>
+      </div>
+    </div>
+    <div style="padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: #fafafa;">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Product Performance</h4>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">SKU revenues, costs, margins, and closing inventory</p>
+        <a href="{{ url_for('reports.export_products_csv') }}" class="btn btn-secondary btn-sm" style="width: 100%;">
+          Export Products (.csv)
+        </a>
+      </div>
+
+      <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: #fafafa;">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Monthly Financial Trends</h4>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Monthly P&L statement, net margins, and units sold</p>
+        <a href="{{ url_for('reports.export_monthly_csv') }}" class="btn btn-secondary btn-sm" style="width: 100%;">
+          Export Monthly Trends (.csv)
+        </a>
+      </div>
+
+      <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: #fafafa;">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Expense Breakdown</h4>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Operating expense categories and share of overhead</p>
+        <a href="{{ url_for('reports.export_expenses_csv') }}" class="btn btn-secondary btn-sm" style="width: 100%;">
+          Export Expenses (.csv)
+        </a>
+      </div>
+
+      <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: #fafafa;">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Loss Anomaly Alerts</h4>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Complete manifest of 7 flagged items with recommendations</p>
+        <a href="{{ url_for('reports.export_alerts_csv') }}" class="btn btn-secondary btn-sm" style="width: 100%;">
+          Export Alerts (.csv)
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive Financial Summary Table -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <h3 class="table-title">Executive Financial Summary & Indicator Balance</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Financial Metric</th>
+            <th>Recorded Inflow / Outflow (INR)</th>
+            <th>Analytical Interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 700;">Sales Revenue (Top-Line)</td>
+            <td style="font-weight: 700;">₹{{ "{:,.2f}".format(kpis.total_revenue) }}</td>
+            <td>Realized revenue after all promotional discounts.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">Product Cost (COGS)</td>
+            <td style="font-weight: 700; color: #e11d48;">₹{{ "{:,.2f}".format(kpis.total_product_cost) }}</td>
+            <td>Direct wholesale product acquisition cost.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">Gross Profit</td>
+            <td style="font-weight: 700; color: {% if kpis.gross_profit >= 0 %}#10b981{% else %}#e11d48{% endif %};">
+              ₹{{ "{:,.2f}".format(kpis.gross_profit) }}
+            </td>
+            <td>Revenue minus Product Cost. Gross margin: {% if kpis.gross_margin is not none %}{{ "{:.1f}%".format(kpis.gross_margin) }}{% else %}N/A{% endif %}.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">Operating Expenses</td>
+            <td style="font-weight: 700; color: #e11d48;">₹{{ "{:,.2f}".format(kpis.operating_expenses or 0.0) }}</td>
+            <td>Store-level overheads (Rent, Salaries, Utilities, Transport, Maintenance).</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">Net Operating Profit</td>
+            <td style="font-weight: 700; color: {% if kpis.net_profit and kpis.net_profit >= 0 %}#10b981{% else %}#e11d48{% endif %};">
+              ₹{{ "{:,.2f}".format(kpis.net_profit or 0.0) }}
+            </td>
+            <td>Gross Profit minus Operating Expenses. Net margin: {% if kpis.net_margin is not none %}{{ "{:.1f}%".format(kpis.net_margin) }}{% else %}N/A{% endif %}.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Applied Thresholds Audit Table -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <h3 class="table-title">Centralized Detection Threshold Audit (ANALYSIS_THRESHOLDS)</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Rule Description</th>
+            <th>Condition</th>
+            <th>Thresholds</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r_code, th in thresholds.items() %}
+            <tr>
+              <td style="font-weight: 700;">{{ r_code }}</td>
+              <td style="font-weight: 600;">{{ th.name }}</td>
+              <td><code>{{ th.condition }}</code></td>
+              <td>
+                {% for k, v in th.items() %}
+                  {% if k not in ['name', 'condition'] %}
+                    <span style="margin-right: 8px;"><strong>{{ k }}</strong>: {{ v }}</span>
+                  {% endif %}
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Limitations Note -->
+  <div class="limitations-box">
+    <div class="limitations-title">ℹ Analytical Scope & System Limitations Notice</div>
+    This system is a transparent, rule-based analytics engine designed for retail decision support. Alerts reflect potential historical anomalies and areas for operational investigation; they do not predict future guaranteed losses. Operating expenses are business-level overheads not allocated per SKU.
+  </div>
+
+{% endif %}
+{% endblock %}

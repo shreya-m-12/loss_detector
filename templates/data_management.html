@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dataset & Database Lifecycle Management{% endblock %}
+{% block page_subtitle %}Switch active datasets, inspect validation rejection logs, trigger re-analyses, and manage database batches.{% endblock %}
+
+{% block content %}
+<div class="table-card">
+  <div class="table-header-bar">
+    <div>
+      <h3 class="table-title">Loaded Datasets (MySQL Database: loss_detector)</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Analysis is strictly executed on ONE active dataset at a time to prevent double-counting.</span>
+    </div>
+    <a href="{{ url_for('upload.index') }}" class="btn btn-primary btn-sm">+ Upload New Dataset</a>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Dataset Name</th>
+          <th>Source</th>
+          <th>Audit Period</th>
+          <th>Accepted Rows</th>
+          <th>Rejected Rows</th>
+          <th>Alerts Flagged</th>
+          <th>Upload Time</th>
+          <th>Active Status</th>
+          <th>Management Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not datasets %}
+          <tr>
+            <td colspan="10" style="text-align: center; padding: 30px; color: #64748b;">
+              No datasets found in MySQL. Upload a file or load the demo dataset.
+            </td>
+          </tr>
+        {% else %}
+          {% for d in datasets %}
+            <tr style="{% if d.is_active %}background-color: #f0fdfa;{% endif %}">
+              <td style="font-weight: 700;">#{{ d.dataset_id }}</td>
+              <td style="font-weight: 600;">{{ d.dataset_name }}</td>
+              <td>
+                <span class="badge" style="background: #f1f5f9; color: #334155; text-transform: uppercase;">
+                  {{ d.source_type }}
+                </span>
+              </td>
+              <td>{{ d.date_min or 'N/A' }} to {{ d.date_max or 'N/A' }}</td>
+              <td style="font-weight: 600; color: #10b981;">{{ d.accepted_rows }}</td>
+              <td>
+                {% if d.rejected_rows > 0 %}
+                  <a href="{{ url_for('data_mgmt.view_rejected', dataset_id=d.dataset_id) }}" style="color: var(--color-red); font-weight: 600; text-decoration: underline;">
+                    {{ d.rejected_rows }} Rejected (View)
+                  </a>
+                {% else %}
+                  <span style="color: #64748b;">0</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 600; color: var(--color-amber);">{{ d.alert_count }}</td>
+              <td style="font-size: 0.75rem; color: #64748b;">{{ d.uploaded_at }}</td>
+              <td>
+                {% if d.is_active %}
+                  <span class="badge badge-healthy">Active Dataset</span>
+                {% else %}
+                  <span class="badge" style="background: #f1f5f9; color: #64748b;">Inactive</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  {% if not d.is_active %}
+                    <form action="{{ url_for('data_mgmt.activate', dataset_id=d.dataset_id) }}" method="POST" style="margin: 0;">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <button type="submit" class="btn btn-secondary btn-sm" title="Set as active dataset for dashboard and analysis">
+                        Set Active
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  <form action="{{ url_for('data_mgmt.reanalyze', dataset_id=d.dataset_id) }}" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Re-run detection rules idempotently">
+                      Re-Analyze
+                    </button>
+                  </form>
+
+                  <form action="{{ url_for('data_mgmt.delete', dataset_id=d.dataset_id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Permanently delete dataset #{{ d.dataset_id }} and all its sales, expenses, and alerts? This cascades across all tables.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="btn btn-danger btn-sm" title="Cascade delete dataset from MySQL">
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

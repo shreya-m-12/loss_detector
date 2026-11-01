@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block page_title %}Executive Financial & Loss Prevention Dashboard{% endblock %}
+{% block page_subtitle %}
+  {% if active_dataset %}
+    Active Dataset: <strong>{{ active_dataset.dataset_name }}</strong> &bull; Period: {{ active_dataset.date_min }} to {{ active_dataset.date_max }}
+  {% else %}
+    No dataset currently loaded
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not active_dataset %}
+  <div class="empty-state-card">
+    <div class="empty-icon">📁</div>
+    <h3 class="empty-title">No Active Retail Dataset Found</h3>
+    <p class="empty-desc">
+      To view real computed financial indicators, loss detection rules, and actionable recommendations,
+      please upload your sales and expense CSV files or load the built-in 6-month demonstration dataset.
+    </p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <a href="{{ url_for('upload.index') }}" class="btn btn-primary btn-lg">Upload Files</a>
+      <form action="{{ url_for('upload.load_sample') }}" method="POST" style="margin: 0;">
+        <button type="submit" class="btn btn-secondary btn-lg">Load Demo Dataset</button>
+      </form>
+    </div>
+  </div>
+{% else %}
+
+  <!-- Interactive Filter Controls -->
+  <div class="filter-card">
+    <div class="filter-group">
+      <label class="filter-label" for="filterStartDate">From Date</label>
+      <input type="date" id="filterStartDate" class="filter-input" value="{{ active_dataset.date_min }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="filterEndDate">To Date</label>
+      <input type="date" id="filterEndDate" class="filter-input" value="{{ active_dataset.date_max }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="filterProduct">Filter by Product</label>
+      <select id="filterProduct" class="filter-select">
+        <option value="All">All Products (Store-Wide)</option>
+        {% for p in products_list %}
+          <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group" style="align-self: flex-end;">
+      <button id="applyFiltersBtn" class="btn btn-primary btn-sm">Apply Filters</button>
+      <button id="resetFiltersBtn" class="btn btn-secondary btn-sm" style="margin-left: 6px;">Reset</button>
+    </div>
+    <div id="filterNote" style="font-size: 0.78rem; color: #64748b; margin-left: auto; max-width: 320px; line-height: 1.3;">
+      <em>Note: Operating expenses are recorded store-wide. When filtering by a single product, Gross Profit is evaluated while store expenses show N/A.</em>
+    </div>
+  </div>
+
+  <!-- 6 Key Performance Indicator Cards -->
+  <div class="kpi-grid">
+    <!-- Revenue -->
+    <div class="kpi-card neutral">
+      <div class="kpi-header">
+        <span class="kpi-title">Sales Revenue</span>
+        <span class="kpi-icon">💰</span>
+      </div>
+      <div class="kpi-value" id="kpiRevenue">₹{{ "{:,.2f}".format(kpis.total_revenue) }}</div>
+      <div class="kpi-subtext" id="kpiQuantity">{{ "{:,.0f}".format(kpis.total_quantity) }} total units sold</div>
+    </div>
+
+    <!-- Product Cost -->
+    <div class="kpi-card neutral">
+      <div class="kpi-header">
+        <span class="kpi-title">Product Cost (COGS)</span>
+        <span class="kpi-icon">📦</span>
+      </div>
+      <div class="kpi-value" id="kpiCost">₹{{ "{:,.2f}".format(kpis.total_product_cost) }}</div>
+      <div class="kpi-subtext">Direct acquisition costs</div>
+    </div>
+
+    <!-- Gross Profit -->
+    <div class="kpi-card {% if kpis.gross_profit >= 0 %}positive{% else %}negative{% endif %}" id="cardGrossProfit">
+      <div class="kpi-header">
+        <span class="kpi-title">Gross Profit</span>
+        <span class="kpi-icon">📈</span>
+      </div>
+      <div class="kpi-value" id="kpiGrossProfit">₹{{ "{:,.2f}".format(kpis.gross_profit) }}</div>
+      <div class="kpi-subtext" id="kpiGrossMargin">
+        Gross Margin: {% if kpis.gross_margin is not none %}{{ "{:.1f}%".format(kpis.gross_margin) }}{% else %}N/A{% endif %}
+      </div>
+    </div>
+
+    <!-- Operating Expenses -->
+    <div class="kpi-card neutral" id="cardExpenses">
+      <div class="kpi-header">
+        <span class="kpi-title">Operating Expenses</span>
+        <span class="kpi-icon">🏢</span>
+      </div>
+      <div class="kpi-value" id="kpiExpenses">
+        {% if kpis.operating_expenses is not none %}₹{{ "{:,.2f}".format(kpis.operating_expenses) }}{% else %}N/A{% endif %}
+      </div>
+      <div class="kpi-subtext" id="kpiExpensesSub">Rent, salaries, utilities</div>
+    </div>
+
+    <!-- Net Profit -->
+    <div class="kpi-card {% if kpis.net_profit is not none and kpis.net_profit >= 0 %}positive{% elif kpis.net_profit is not none %}negative{% else %}neutral{% endif %}" id="cardNetProfit">
+      <div class="kpi-header">
+        <span class="kpi-title">Net Profit</span>
+        <span class="kpi-icon">🏦</span>
+      </div>
+      <div class="kpi-value" id="kpiNetProfit">
+        {% if kpis.net_profit is not none %}₹{{ "{:,.2f}".format(kpis.net_profit) }}{% else %}N/A{% endif %}
+      </div>
+      <div class="kpi-subtext" id="kpiNetMargin">
+        Net Margin: {% if kpis.net_margin is not none %}{{ "{:.1f}%".format(kpis.net_margin) }}{% else %}N/A{% endif %}
+      </div>
+    </div>
+
+    <!-- Loss Detection Summary -->
+    <div class="kpi-card {% if alert_counts.High > 0 %}negative{% elif alert_counts.Medium > 0 %}neutral{% else %}positive{% endif %}">
+      <div class="kpi-header">
+        <span class="kpi-title">Flagged Risk Alerts</span>
+        <span class="kpi-icon">⚠️</span>
+      </div>
+      <div class="kpi-value" id="kpiAlertCount">{{ alert_counts.Total }}</div>
+      <div class="kpi-subtext" id="kpiAlertBreakdown">
+        <span style="color: var(--color-red); font-weight: 600;">{{ alert_counts.High }} High</span> &bull; 
+        <span style="color: var(--color-amber); font-weight: 600;">{{ alert_counts.Medium }} Med</span> &bull; 
+        <span style="color: var(--color-blue); font-weight: 600;">{{ alert_counts.Low }} Low</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 Chart.js Analytics Visualizations -->
+  <div class="charts-grid">
+    <!-- Chart 1: Monthly Revenue vs Expenses -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">1. Monthly Revenue vs Total Costs & Expenses</h4>
+          <span class="chart-subtitle">Direct comparison of top-line revenue against outflows</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartRevVsExp"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 2: Monthly Profit Trend -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">2. Monthly Profitability Trend</h4>
+          <span class="chart-subtitle">Gross Profit vs Net Operating Profit trajectories</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartProfitTrend"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 3: Product Profitability -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">3. Product-Wise Profitability (Top Contributors)</h4>
+          <span class="chart-subtitle">Sales revenue and gross profit by product line</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartProdProfit"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 4: Expense Category Distribution -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">4. Operating Expense Distribution</h4>
+          <span class="chart-subtitle">Breakdown across Rent, Salaries, Electricity, Transport, etc.</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartExpensePie"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 5: Monthly Sales Quantity -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">5. Monthly Sales Volume (Units Sold)</h4>
+          <span class="chart-subtitle">Total units transacted across all SKUs per month</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartQtyTrend"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 6: Discount Margin Impact -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <h4 class="chart-title">6. Discount Volume vs Sales Revenue</h4>
+          <span class="chart-subtitle">Tracking price reductions and margin surrender</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartDiscountImpact"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Priority Alerts Section -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <div>
+        <h3 class="table-title">Top Priority Flagged Anomaly Alerts</h3>
+        <span style="font-size: 0.78rem; color: #64748b;">Showing highest severity loss indicators requiring operational investigation</span>
+      </div>
+      <a href="{{ url_for('alerts.index') }}" class="btn btn-secondary btn-sm">View All {{ alert_counts.Total }} Alerts →</a>
+    </div>
+    <div style="padding: 18px 20px;">
+      {% if not alerts_list %}
+        <p style="font-size: 0.88rem; color: #10b981; font-weight: 600;">✓ No loss anomalies flagged in this dataset.</p>
+      {% else %}
+        <div class="alerts-list">
+          {% for a in alerts_list %}
+            <div class="alert-item-card {{ a.severity }}">
+              <div class="alert-meta-row">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-{{ a.severity.lower() }}">{{ a.severity }}</span>
+                  <span class="badge" style="background: #f1f5f9; color: #334155;">{{ a.rule_code }} &bull; {{ a.category }}</span>
+                  <span class="alert-subject">{{ a.subject_name }}</span>
+                </div>
+                <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">Period: {{ a.period_month }}</span>
+              </div>
+              <p class="alert-explanation">{{ a.explanation }}</p>
+              <div class="alert-recommendation">
+                <strong>Action to Investigate:</strong> {{ a.recommendation }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Product Performance Ranking Table -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <div>
+        <h3 class="table-title">Product Performance & Inventory Health Audit</h3>
+        <span style="font-size: 0.78rem; color: #64748b;">All metrics computed from recorded transactions. Never sums inventory snapshots.</span>
+      </div>
+      <a href="{{ url_for('reports.export_products_csv') }}" class="btn btn-secondary btn-sm">Download CSV</a>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table" id="productPerfTable">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Units Sold</th>
+            <th>Avg Selling Price</th>
+            <th>Sales Revenue</th>
+            <th>Product Cost</th>
+            <th>Gross Profit</th>
+            <th>Gross Margin</th>
+            <th>Closing Stock</th>
+            <th>Loss Risk Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products_perf %}
+            <tr>
+              <td style="font-weight: 600;">{{ p.product_name }}</td>
+              <td>{{ "{:,.1f}".format(p.quantity_sold) }}</td>
+              <td>₹{{ "{:,.2f}".format(p.average_selling_price) }}</td>
+              <td>₹{{ "{:,.2f}".format(p.sales_revenue) }}</td>
+              <td>₹{{ "{:,.2f}".format(p.product_cost) }}</td>
+              <td style="font-weight: 600; color: {% if p.gross_profit >= 0 %}#10b981{% else %}#e11d48{% endif %};">
+                ₹{{ "{:,.2f}".format(p.gross_profit) }}
+              </td>
+              <td>
+                {% if p.gross_margin is not none %}
+                  <span style="font-weight: 600; color: {% if p.gross_margin >= 15 %}#10b981{% elif p.gross_margin > 0 %}#d97706{% else %}#e11d48{% endif %};">
+                    {{ "{:.1f}%".format(p.gross_margin) }}
+                  </span>
+                {% else %}
+                  <span style="color: #64748b;">N/A</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 600;">{{ "{:,.0f}".format(p.latest_inventory) }}</td>
+              <td>
+                {% if p.risk_status == 'High Risk' %}
+                  <span class="badge badge-high">High Risk</span>
+                {% elif p.risk_status == 'Medium Risk' %}
+                  <span class="badge badge-medium">Medium Risk</span>
+                {% elif p.risk_status == 'Low Risk' %}
+                  <span class="badge badge-low">Low Risk</span>
+                {% else %}
+                  <span class="badge badge-healthy">Healthy</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Analytical Scope & Limitations Notice -->
+  <div class="limitations-box">
+    <div class="limitations-title">ℹ Analytical Scope & System Limitations Notice</div>
+    This system implements deterministic, rule-based analytics to identify potential historical anomalies and assist store owners with decision support. Flagged items represent patterns requiring operational verification, not guaranteed future loss predictions. Operating expenses are business-level and not attributed per SKU. Inventory metrics reflect closing snapshots as of the most recent sale.
+  </div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if active_dataset %}
+<script>
+  // Initial Chart Data injected safely from backend
+  const initialMonthly = {{ monthly_trends | tojson | safe }};
+  const initialProducts = {{ products_perf | tojson | safe }};
+  const initialExpenses = {{ expense_dist | tojson | safe }};
+
+  let chartInstances = {};
+
+  function initCharts(monthly, products, expenses, isProductFiltered = false) {
+    const months = monthly.map(m => m.month);
+
+    // 1. Monthly Revenue vs Total Costs
+    const ctx1 = document.getElementById('chartRevVsExp')?.getContext('2d');
+    if (ctx1) {
+      if (chartInstances.revVsExp) chartInstances.revVsExp.destroy();
+      chartInstances.revVsExp = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'Sales Revenue (₹)',
+              data: monthly.map(m => m.revenue),
+              backgroundColor: '#0d9488',
+              borderRadius: 4,
+            },
+            {
+              label: isProductFiltered ? 'Product Cost (₹)' : 'Total Costs & Expenses (₹)',
+              data: monthly.map(m => m.product_cost + (isProductFiltered ? 0 : m.operating_expenses)),
+              backgroundColor: '#e11d48',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    // 2. Profitability Trend
+    const ctx2 = document.getElementById('chartProfitTrend')?.getContext('2d');
+    if (ctx2) {
+      if (chartInstances.profitTrend) chartInstances.profitTrend.destroy();
+      chartInstances.profitTrend = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'Gross Profit (₹)',
+              data: monthly.map(m => m.gross_profit),
+              borderColor: '#0d9488',
+              backgroundColor: '#0d9488',
+              tension: 0.2,
+              fill: false,
+            },
+            {
+              label: isProductFiltered ? 'Net Profit (N/A)' : 'Net Profit (₹)',
+              data: isProductFiltered ? [] : monthly.map(m => m.net_profit),
+              borderColor: '#0284c7',
+              backgroundColor: '#0284c7',
+              tension: 0.2,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    // 3. Product Profitability (Top 8)
+    const ctx3 = document.getElementById('chartProdProfit')?.getContext('2d');
+    if (ctx3) {
+      if (chartInstances.prodProfit) chartInstances.prodProfit.destroy();
+      const topP = products.slice(0, 8);
+      chartInstances.prodProfit = new Chart(ctx3, {
+        type: 'bar',
+        data: {
+          labels: topP.map(p => p.product_name.length > 15 ? p.product_name.substring(0, 15) + '…' : p.product_name),
+          datasets: [
+            {
+              label: 'Revenue (₹)',
+              data: topP.map(p => p.sales_revenue),
+              backgroundColor: '#0f766e',
+              borderRadius: 4,
+            },
+            {
+              label: 'Gross Profit (₹)',
+              data: topP.map(p => p.gross_profit),
+              backgroundColor: '#10b981',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    // 4. Operating Expense Distribution
+    const ctx4 = document.getElementById('chartExpensePie')?.getContext('2d');
+    if (ctx4) {
+      if (chartInstances.expensePie) chartInstances.expensePie.destroy();
+      const palette = ['#0f766e', '#0284c7', '#d97706', '#e11d48', '#8b5cf6', '#64748b'];
+      chartInstances.expensePie = new Chart(ctx4, {
+        type: 'doughnut',
+        data: {
+          labels: expenses.map(e => e.category),
+          datasets: [{
+            data: expenses.map(e => e.amount),
+            backgroundColor: palette.slice(0, expenses.length),
+            borderWidth: 2,
+            borderColor: '#ffffff',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+    }
+
+    // 5. Monthly Sales Quantity
+    const ctx5 = document.getElementById('chartQtyTrend')?.getContext('2d');
+    if (ctx5) {
+      if (chartInstances.qtyTrend) chartInstances.qtyTrend.destroy();
+      chartInstances.qtyTrend = new Chart(ctx5, {
+        type: 'line',
+        data: {
+          labels: months,
+          datasets: [{
+            label: 'Total Units Sold',
+            data: monthly.map(m => m.quantity_sold),
+            borderColor: '#d97706',
+            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+            fill: true,
+            tension: 0.25,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    // 6. Discount Impact
+    const ctx6 = document.getElementById('chartDiscountImpact')?.getContext('2d');
+    if (ctx6) {
+      if (chartInstances.discountImpact) chartInstances.discountImpact.destroy();
+      chartInstances.discountImpact = new Chart(ctx6, {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'Realized Revenue (₹)',
+              data: monthly.map(m => m.revenue),
+              backgroundColor: '#0d9488',
+              borderRadius: 4,
+            },
+            {
+              label: 'Discount Given (₹)',
+              data: monthly.map(m => m.discount_amount),
+              backgroundColor: '#f59e0b',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+  }
+
+  // Initialize charts immediately
+  initCharts(initialMonthly, initialProducts, initialExpenses);
+
+  // Dynamic AJAX Filtering
+  document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
+    const sDate = document.getElementById('filterStartDate').value;
+    const eDate = document.getElementById('filterEndDate').value;
+    const prod = document.getElementById('filterProduct').value;
+
+    const url = `/api/dashboard-data?start_date=${encodeURIComponent(sDate)}&end_date=${encodeURIComponent(eDate)}&product_name=${encodeURIComponent(prod)}`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) return;
+
+        // Update KPI values safely using textContent
+        document.getElementById('kpiRevenue').textContent = '₹' + Number(data.kpis.total_revenue).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('kpiQuantity').textContent = Number(data.kpis.total_quantity).toLocaleString('en-IN') + ' total units sold';
+        document.getElementById('kpiCost').textContent = '₹' + Number(data.kpis.total_product_cost).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('kpiGrossProfit').textContent = '₹' + Number(data.kpis.gross_profit).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('kpiGrossMargin').textContent = 'Gross Margin: ' + (data.kpis.gross_margin !== null ? Number(data.kpis.gross_margin).toFixed(1) + '%' : 'N/A');
+
+        if (data.is_product_filtered) {
+          document.getElementById('kpiExpenses').textContent = 'N/A';
+          document.getElementById('kpiExpensesSub').textContent = 'Expenses are store-wide';
+          document.getElementById('kpiNetProfit').textContent = 'N/A';
+          document.getElementById('kpiNetMargin').textContent = 'Net Margin: N/A (single product selected)';
+        } else {
+          document.getElementById('kpiExpenses').textContent = '₹' + Number(data.kpis.operating_expenses || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          document.getElementById('kpiExpensesSub').textContent = 'Rent, salaries, utilities';
+          document.getElementById('kpiNetProfit').textContent = '₹' + Number(data.kpis.net_profit || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          document.getElementById('kpiNetMargin').textContent = 'Net Margin: ' + (data.kpis.net_margin !== null ? Number(data.kpis.net_margin).toFixed(1) + '%' : 'N/A');
+        }
+
+        document.getElementById('kpiAlertCount').textContent = data.alert_counts.Total;
+        document.getElementById('kpiAlertBreakdown').innerHTML = `
+          <span style="color: var(--color-red); font-weight: 600;">${data.alert_counts.High} High</span> &bull; 
+          <span style="color: var(--color-amber); font-weight: 600;">${data.alert_counts.Medium} Med</span> &bull; 
+          <span style="color: var(--color-blue); font-weight: 600;">${data.alert_counts.Low} Low</span>
+        `;
+
+        // Update Charts
+        initCharts(
+          data.charts.rev_vs_exp.labels.map((m, idx) => ({
+            month: m,
+            revenue: data.charts.rev_vs_exp.revenue[idx],
+            product_cost: data.charts.rev_vs_exp.costs_expenses[idx],
+            operating_expenses: 0,
+            gross_profit: data.charts.profit_trend.gross_profit[idx],
+            net_profit: data.charts.profit_trend.net_profit[idx],
+            quantity_sold: data.charts.qty_trend.quantity[idx],
+            discount_amount: data.charts.discount_impact.discount_amount[idx],
+          })),
+          data.products_perf,
+          data.charts.expense_pie.labels.map((cat, idx) => ({ category: cat, amount: data.charts.expense_pie.amounts[idx] })),
+          data.is_product_filtered
+        );
+      })
+      .catch(err => console.error("Filter update failed:", err));
+  });
+
+  document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
+    document.getElementById('filterStartDate').value = '{{ active_dataset.date_min }}';
+    document.getElementById('filterEndDate').value = '{{ active_dataset.date_max }}';
+    document.getElementById('filterProduct').value = 'All';
+    document.getElementById('applyFiltersBtn').click();
+  });
+</script>
+{% endif %}
+{% endblock %}

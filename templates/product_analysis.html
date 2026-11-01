@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block page_title %}Product Performance & SKU Loss Risk Audit{% endblock %}
+{% block page_subtitle %}Unit economics, gross margins, closing inventory snapshots, and SKU-level risk flags.{% endblock %}
+
+{% block content %}
+{% if not active_dataset %}
+  <div class="empty-state-card">
+    <div class="empty-icon">🏷️</div>
+    <h3 class="empty-title">No Active Dataset</h3>
+    <p class="empty-desc">Please upload or activate a dataset to inspect product performance rankings.</p>
+    <a href="{{ url_for('upload.index') }}" class="btn btn-primary">Go to Upload</a>
+  </div>
+{% else %}
+
+  <!-- Product Filter Dropdown -->
+  <form method="GET" action="{{ url_for('analysis.product_analysis') }}" class="filter-card">
+    <div class="filter-group">
+      <label class="filter-label" for="productSelect">Select Product for Historical SKU Drilldown</label>
+      <select id="productSelect" name="product_name" class="filter-select" style="min-width: 250px;">
+        <option value="All">All Products (Show Full Catalog)</option>
+        {% for p in all_products %}
+          <option value="{{ p }}" {% if selected_product == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group" style="align-self: flex-end;">
+      <button type="submit" class="btn btn-primary btn-sm">Filter Product</button>
+      <a href="{{ url_for('analysis.product_analysis') }}" class="btn btn-secondary btn-sm" style="margin-left: 6px;">Clear</a>
+    </div>
+  </form>
+
+  <!-- Drilldown View for Single Selected Product -->
+  {% if selected_product and selected_product != 'All' and prod_history %}
+    <div class="table-card" style="border-left: 4px solid var(--primary); margin-bottom: 24px;">
+      <div class="table-header-bar" style="background: #f0fdfa;">
+        <h3 class="table-title" style="color: #0f766e;">Monthly Trajectory for "{{ selected_product }}"</h3>
+        <span class="badge badge-healthy">{{ prod_history | length }} Recorded Months</span>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Quantity Sold</th>
+              <th>Realized Revenue</th>
+              <th>Product Cost</th>
+              <th>Gross Profit</th>
+              <th>Gross Margin</th>
+              <th>Discount Surrendered</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in prod_history %}
+              <tr>
+                <td style="font-weight: 700;">{{ h.month }}</td>
+                <td>{{ "{:,.1f}".format(h.quantity) }} units</td>
+                <td style="font-weight: 600;">₹{{ "{:,.2f}".format(h.revenue) }}</td>
+                <td>₹{{ "{:,.2f}".format(h.cost) }}</td>
+                <td style="font-weight: 600; color: {% if h.profit >= 0 %}#10b981{% else %}#e11d48{% endif %};">
+                  ₹{{ "{:,.2f}".format(h.profit) }}
+                </td>
+                <td>
+                  {% if h.margin is not none %}
+                    <span style="font-weight: 600; color: {% if h.margin >= 15 %}#10b981{% elif h.margin > 0 %}#d97706{% else %}#e11d48{% endif %};">
+                      {{ "{:.1f}%".format(h.margin) }}
+                    </span>
+                  {% else %}
+                    N/A
+                  {% endif %}
+                </td>
+                <td>₹{{ "{:,.2f}".format(h.discount) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Catalog Performance Ranking Table -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <div>
+        <h3 class="table-title">Product Catalog Performance Audit</h3>
+        <span style="font-size: 0.78rem; color: #64748b;">Closing stock represents the most recent recorded inventory snapshot.</span>
+      </div>
+      <a href="{{ url_for('reports.export_products_csv') }}" class="btn btn-secondary btn-sm">Export CSV</a>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Units Sold</th>
+            <th>Avg Selling Price</th>
+            <th>Total Revenue</th>
+            <th>Total Cost</th>
+            <th>Gross Profit</th>
+            <th>Gross Margin</th>
+            <th>Closing Stock</th>
+            <th>Risk Status</th>
+            <th>Alerts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products_perf %}
+            <tr>
+              <td style="font-weight: 600;">
+                <a href="{{ url_for('analysis.product_analysis', product_name=p.product_name) }}" style="color: var(--primary); text-decoration: none;">
+                  {{ p.product_name }}
+                </a>
+              </td>
+              <td>{{ "{:,.1f}".format(p.quantity_sold) }}</td>
+              <td>₹{{ "{:,.2f}".format(p.average_selling_price) }}</td>
+              <td style="font-weight: 600;">₹{{ "{:,.2f}".format(p.sales_revenue) }}</td>
+              <td>₹{{ "{:,.2f}".format(p.product_cost) }}</td>
+              <td style="font-weight: 600; color: {% if p.gross_profit >= 0 %}#10b981{% else %}#e11d48{% endif %};">
+                ₹{{ "{:,.2f}".format(p.gross_profit) }}
+              </td>
+              <td>
+                {% if p.gross_margin is not none %}
+                  <span style="font-weight: 600; color: {% if p.gross_margin >= 15 %}#10b981{% elif p.gross_margin > 0 %}#d97706{% else %}#e11d48{% endif %};">
+                    {{ "{:.1f}%".format(p.gross_margin) }}
+                  </span>
+                {% else %}
+                  <span style="color: #64748b;">N/A</span>
+                {% endif %}
+              </td>
+              <td style="font-weight: 700;">{{ "{:,.0f}".format(p.latest_inventory) }}</td>
+              <td>
+                {% if p.risk_status == 'High Risk' %}
+                  <span class="badge badge-high">High Risk</span>
+                {% elif p.risk_status == 'Medium Risk' %}
+                  <span class="badge badge-medium">Medium Risk</span>
+                {% elif p.risk_status == 'Low Risk' %}
+                  <span class="badge badge-low">Low Risk</span>
+                {% else %}
+                  <span class="badge badge-healthy">Healthy</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if p.alert_count > 0 %}
+                  <a href="{{ url_for('alerts.index', product=p.product_name) }}" class="badge badge-medium" style="text-decoration: none;">
+                    {{ p.alert_count }} Alert(s)
+                  </a>
+                {% else %}
+                  <span style="color: #94a3b8; font-size: 0.75rem;">None</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+{% endif %}
+{% endblock %}

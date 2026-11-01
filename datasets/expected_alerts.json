@@ -1,0 +1,51 @@
+[
+  {
+    "rule_code": "R1",
+    "subject_name": "Imported Olive Oil 1L",
+    "period_month": "2026-08",
+    "severity": "Medium",
+    "note": "Revenue 8000 < Cost 9500, loss 1500, margin -18.75%"
+  },
+  {
+    "rule_code": "R2",
+    "subject_name": "Refined Palm Oil 1L",
+    "period_month": "2026-06",
+    "severity": "Medium",
+    "note": "Margin 4.55% (< 5% -> Medium)"
+  },
+  {
+    "rule_code": "R2",
+    "subject_name": "Gram Flour Besan 1kg",
+    "period_month": "2026-07",
+    "severity": "Low",
+    "note": "Margin 7.37% (5% to 10% -> Low)"
+  },
+  {
+    "rule_code": "R3",
+    "subject_name": "Basmati Rice 1kg",
+    "period_month": "2026-09",
+    "severity": "Medium",
+    "note": "Sales fell from 100 to 60 (-40.0%)"
+  },
+  {
+    "rule_code": "R4",
+    "subject_name": "Electricity",
+    "period_month": "2026-08",
+    "severity": "Medium",
+    "note": "Expense rose from 4000 to 6400 (+60.0%)"
+  },
+  {
+    "rule_code": "R5",
+    "subject_name": "Organic Quinoa 500g",
+    "period_month": "2026-07",
+    "severity": "Medium",
+    "note": "Inventory 90 vs 3-mo avg 20 (ratio 4.5x)"
+  },
+  {
+    "rule_code": "R6",
+    "subject_name": "Premium Basmati Rice 5kg",
+    "period_month": "2026-09",
+    "severity": "Medium",
+    "note": "Margin drop from 50.0% to 23.08% = 26.92 points drop"
+  }
+]

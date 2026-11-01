@@ -1,0 +1,2 @@
+transaction_date,product_name,quantity_sold,selling_price,discount_amount,sales_revenue,product_cost,inventory_quantity,transaction_ref
+2026-08-10,Rice 1kg,10,100.00,0.00,750.00,800.00,50,TX-REV-MISMATCH

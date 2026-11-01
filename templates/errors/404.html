@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block page_title %}Page Not Found (404){% endblock %}
+
+{% block content %}
+<div class="empty-state-card">
+  <div class="empty-icon">🔍</div>
+  <h3 class="empty-title">404 - Requested Page Not Found</h3>
+  <p class="empty-desc">
+    The URL you requested does not exist on this analytics server. Please check the address or return to the main dashboard.
+  </p>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Return to Executive Dashboard</a>
+</div>
+{% endblock %}

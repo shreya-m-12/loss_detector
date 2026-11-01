@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block page_title %}Operational Recommendations & Decision Support Center{% endblock %}
+{% block page_subtitle %}Actionable, data-linked operational advice derived from flagged risk indicators.{% endblock %}
+
+{% block content %}
+{% if not active_dataset %}
+  <div class="empty-state-card">
+    <div class="empty-icon">💡</div>
+    <h3 class="empty-title">No Active Dataset</h3>
+    <p class="empty-desc">Please upload or activate a dataset to view data-linked recommendations.</p>
+    <a href="{{ url_for('upload.index') }}" class="btn btn-primary">Go to Upload</a>
+  </div>
+{% else %}
+
+  <!-- Overview Cards -->
+  <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
+    <div class="kpi-card negative">
+      <div class="kpi-header"><span class="kpi-title">High Priority Actions</span></div>
+      <div class="kpi-value" style="color: var(--color-red);">{{ high_alerts | length }} Items</div>
+      <div class="kpi-subtext">Immediate loss / severe margin impact</div>
+    </div>
+    <div class="kpi-card neutral">
+      <div class="kpi-header"><span class="kpi-title">Medium Priority Actions</span></div>
+      <div class="kpi-value" style="color: var(--color-amber);">{{ med_alerts | length }} Items</div>
+      <div class="kpi-subtext">Emerging volume decline or overstock</div>
+    </div>
+    <div class="kpi-card positive">
+      <div class="kpi-header"><span class="kpi-title">Low Priority / Monitoring</span></div>
+      <div class="kpi-value" style="color: var(--color-blue);">{{ low_alerts | length }} Items</div>
+      <div class="kpi-subtext">Minor margin compression</div>
+    </div>
+  </div>
+
+  <!-- Priority 1: High Severity Actions -->
+  {% if high_alerts %}
+    <div class="table-card" style="border-left: 4px solid var(--color-red); margin-bottom: 24px;">
+      <div class="table-header-bar" style="background: var(--color-red-bg);">
+        <div>
+          <h3 class="table-title" style="color: #9f1239;">🚨 Urgent High-Priority Operational Actions</h3>
+          <span style="font-size: 0.78rem; color: #be123c;">Requires immediate manager review of procurement invoices, retail pricing, or supplier contracts</span>
+        </div>
+        <span class="badge badge-high">{{ high_alerts | length }} Urgent Items</span>
+      </div>
+      <div style="padding: 20px;">
+        <div class="alerts-list">
+          {% for a in high_alerts %}
+            <div class="alert-item-card High">
+              <div class="alert-meta-row">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-high">High</span>
+                  <span class="badge" style="background: #f1f5f9; color: #334155;">{{ a.rule_code }}</span>
+                  <span class="alert-subject">{{ a.subject_name }}</span>
+                </div>
+                <span style="font-size: 0.8rem; color: #64748b;">Period: {{ a.period_month }}</span>
+              </div>
+              <p class="alert-explanation" style="font-weight: 500;">{{ a.explanation }}</p>
+              <div class="alert-recommendation" style="background: #fff1f2; border-color: #fecdd3; color: #9f1239;">
+                <div style="font-weight: 700; margin-bottom: 4px;">Recommended Operational Action:</div>
+                {{ a.recommendation }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Priority 2: Medium Severity Actions -->
+  {% if med_alerts %}
+    <div class="table-card" style="border-left: 4px solid var(--color-amber); margin-bottom: 24px;">
+      <div class="table-header-bar" style="background: var(--color-amber-bg);">
+        <div>
+          <h3 class="table-title" style="color: #92400e;">⚠️ Medium-Priority Operational Adjustments</h3>
+          <span style="font-size: 0.78rem; color: #b45309;">Recommended for next weekly inventory cycle and category planning</span>
+        </div>
+        <span class="badge badge-medium">{{ med_alerts | length }} Items</span>
+      </div>
+      <div style="padding: 20px;">
+        <div class="alerts-list">
+          {% for a in med_alerts %}
+            <div class="alert-item-card Medium">
+              <div class="alert-meta-row">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-medium">Medium</span>
+                  <span class="badge" style="background: #f1f5f9; color: #334155;">{{ a.rule_code }}</span>
+                  <span class="alert-subject">{{ a.subject_name }}</span>
+                </div>
+                <span style="font-size: 0.8rem; color: #64748b;">Period: {{ a.period_month }}</span>
+              </div>
+              <p class="alert-explanation">{{ a.explanation }}</p>
+              <div class="alert-recommendation">
+                <div style="font-weight: 700; margin-bottom: 4px;">Recommended Operational Action:</div>
+                {{ a.recommendation }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Priority 3: Low Severity Recommendations -->
+  {% if low_alerts %}
+    <div class="table-card" style="border-left: 4px solid var(--color-blue); margin-bottom: 24px;">
+      <div class="table-header-bar" style="background: var(--color-blue-bg);">
+        <div>
+          <h3 class="table-title" style="color: #1e40af;">ℹ Low-Priority Operational Monitoring</h3>
+          <span style="font-size: 0.78rem; color: #2563eb;">Minor variance or low margin requiring ongoing tracking</span>
+        </div>
+        <span class="badge badge-low">{{ low_alerts | length }} Items</span>
+      </div>
+      <div style="padding: 20px;">
+        <div class="alerts-list">
+          {% for a in low_alerts %}
+            <div class="alert-item-card Low">
+              <div class="alert-meta-row">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-low">Low</span>
+                  <span class="badge" style="background: #f1f5f9; color: #334155;">{{ a.rule_code }}</span>
+                  <span class="alert-subject">{{ a.subject_name }}</span>
+                </div>
+                <span style="font-size: 0.8rem; color: #64748b;">Period: {{ a.period_month }}</span>
+              </div>
+              <p class="alert-explanation">{{ a.explanation }}</p>
+              <div class="alert-recommendation" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                <div style="font-weight: 700; margin-bottom: 4px;">Recommended Monitoring Action:</div>
+                {{ a.recommendation }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Decision Support Summary by Analytical Rule -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <h3 class="table-title">Action Playbook by Rule Classification</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Standard operating procedures for each flagged category</span>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rule</th>
+            <th>Primary Trigger</th>
+            <th>Store Owner Action Checklist</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 700;">R1: Loss-Making</td>
+            <td>Cost &gt; Revenue</td>
+            <td>Audit supplier wholesale price changes, check promotional markdowns, review cashier overrides.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">R2: Low-Margin</td>
+            <td>0 &lt; Margin &lt; 10%</td>
+            <td>Test 3-5% price hike, bundle with high-margin items, check shipping or distributor handling fees.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">R3: Declining Sales</td>
+            <td>Decline &gt; 20% vs prior sales month</td>
+            <td>Verify stock availability during month, inspect shelf positioning, check competitor local offers.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">R4: Expense Surge</td>
+            <td>Overhead surge &gt; 30% vs prior month</td>
+            <td>Inspect invoice vouchers for one-off charges, check electricity meter readings, review maintenance bills.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">R5: Inventory Risk</td>
+            <td>Closing stock &gt; 3x trailing 3-month sales</td>
+            <td>Halt reorders, inspect perishable expiry dates, launch bundle or clearance promotions to free working capital.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700;">R6: Discount Risk</td>
+            <td>Discount margin drop &gt; 15 points</td>
+            <td>Cap discount thresholds to protect 15% minimum margin, shift from flat discounts to volume tiers.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+{% endif %}
+{% endblock %}

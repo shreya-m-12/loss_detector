@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block page_title %}Rejected Records Audit: {{ dataset.dataset_name }}{% endblock %}
+{% block page_subtitle %}Line-by-line inspection of rows rejected during CSV parsing and mathematical validation.{% endblock %}
+
+{% block content %}
+<div class="table-card">
+  <div class="table-header-bar">
+    <div>
+      <h3 class="table-title">Rejection Audit Log for Dataset #{{ dataset.dataset_id }}</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Total {{ rejected_records | length }} row(s) rejected</span>
+    </div>
+    <a href="{{ url_for('data_mgmt.index') }}" class="btn btn-secondary btn-sm">← Back to Datasets</a>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Source File</th>
+          <th>Original Line #</th>
+          <th>Specific Failure Reason</th>
+          <th>Submitted Raw Record</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not rejected_records %}
+          <tr>
+            <td colspan="4" style="text-align: center; padding: 30px; color: #10b981; font-weight: 600;">
+              ✓ No rejected records recorded for this dataset.
+            </td>
+          </tr>
+        {% else %}
+          {% for r in rejected_records %}
+            <tr>
+              <td>
+                <span class="badge" style="background: #f1f5f9; color: #334155;">{{ r.source_file }}</span>
+              </td>
+              <td style="font-weight: 700; color: #9f1239;">Line {{ r.line_number }}</td>
+              <td style="color: #e11d48; font-weight: 600;">{{ r.reason }}</td>
+              <td style="font-family: monospace; font-size: 0.75rem; color: #334155;">
+                {{ r.raw_data | tojson }}
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

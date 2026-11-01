@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block page_title %}Loss Detection & Anomaly Alerts{% endblock %}
+{% block page_subtitle %}
+  Six transparent detection rules applied across calendar months to identify loss-making products, margin erosion, sales decline, expense surges, and stock risks.
+{% endblock %}
+
+{% block content %}
+{% if not active_dataset %}
+  <div class="empty-state-card">
+    <div class="empty-icon">⚠️</div>
+    <h3 class="empty-title">No Active Dataset</h3>
+    <p class="empty-desc">Please upload or activate a dataset to inspect rule-based loss alerts.</p>
+    <a href="{{ url_for('upload.index') }}" class="btn btn-primary">Go to Upload</a>
+  </div>
+{% else %}
+
+  <!-- Filter Bar for Alerts -->
+  <form method="GET" action="{{ url_for('alerts.index') }}" class="filter-card">
+    <div class="filter-group">
+      <label class="filter-label" for="filterSeverity">Severity</label>
+      <select id="filterSeverity" name="severity" class="filter-select">
+        <option value="All" {% if filters.severity == 'All' %}selected{% endif %}>All Severities</option>
+        <option value="High" {% if filters.severity == 'High' %}selected{% endif %}>High Severity</option>
+        <option value="Medium" {% if filters.severity == 'Medium' %}selected{% endif %}>Medium Severity</option>
+        <option value="Low" {% if filters.severity == 'Low' %}selected{% endif %}>Low Severity</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label" for="filterRule">Detection Rule</label>
+      <select id="filterRule" name="rule_code" class="filter-select">
+        <option value="All" {% if filters.rule_code == 'All' %}selected{% endif %}>All Rules (R1 - R6)</option>
+        <option value="R1" {% if filters.rule_code == 'R1' %}selected{% endif %}>R1: Loss-making product</option>
+        <option value="R2" {% if filters.rule_code == 'R2' %}selected{% endif %}>R2: Low-margin product</option>
+        <option value="R3" {% if filters.rule_code == 'R3' %}selected{% endif %}>R3: Declining sales volume</option>
+        <option value="R4" {% if filters.rule_code == 'R4' %}selected{% endif %}>R4: Unusual expense increase</option>
+        <option value="R5" {% if filters.rule_code == 'R5' %}selected{% endif %}>R5: Inventory overstock risk</option>
+        <option value="R6" {% if filters.rule_code == 'R6' %}selected{% endif %}>R6: Discount margin risk</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label" for="filterMonth">Calendar Month</label>
+      <select id="filterMonth" name="month" class="filter-select">
+        <option value="All" {% if filters.month == 'All' %}selected{% endif %}>All Months</option>
+        {% for m in months_list %}
+          <option value="{{ m }}" {% if filters.month == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label" for="filterProduct">Filter Subject</label>
+      <select id="filterProduct" name="product" class="filter-select">
+        <option value="All" {% if filters.product == 'All' %}selected{% endif %}>All Products</option>
+        {% for p in products_list %}
+          <option value="{{ p }}" {% if filters.product == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-group" style="align-self: flex-end;">
+      <button type="submit" class="btn btn-primary btn-sm">Filter Alerts</button>
+      <a href="{{ url_for('alerts.index') }}" class="btn btn-secondary btn-sm" style="margin-left: 6px;">Reset</a>
+    </div>
+
+    <div style="margin-left: auto; font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+      Showing {{ filtered_count }} of {{ total_alerts }} alerts
+    </div>
+  </form>
+
+  <!-- Alerts Display List -->
+  <div class="table-card">
+    <div class="table-header-bar">
+      <div>
+        <h3 class="table-title">Flagged Operational Loss Alerts</h3>
+        <span style="font-size: 0.78rem; color: #64748b;">
+          Every alert displays the exact formula with substituted numbers, threshold applied, and actionable investigation step.
+        </span>
+      </div>
+      <a href="{{ url_for('reports.export_alerts_csv') }}" class="btn btn-secondary btn-sm">Export Alerts CSV</a>
+    </div>
+
+    <div style="padding: 20px;">
+      {% if not alerts_list %}
+        <div style="text-align: center; padding: 40px; color: #64748b;">
+          <div style="font-size: 2rem; margin-bottom: 8px;">✓</div>
+          <h4 style="font-size: 1rem; color: var(--text-main);">No alerts match the active filter criteria.</h4>
+          <p style="font-size: 0.82rem;">Adjust your filter controls above to view other alert rules or periods.</p>
+        </div>
+      {% else %}
+        <div class="alerts-list">
+          {% for a in alerts_list %}
+            <div class="alert-item-card {{ a.severity }}" id="alert-{{ a.alert_id }}">
+              <div class="alert-meta-row">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span class="badge badge-{{ a.severity.lower() }}">{{ a.severity }} Severity</span>
+                  <span class="badge" style="background: #0f766e; color: #ffffff;">{{ a.rule_code }}</span>
+                  <span class="badge" style="background: #f1f5f9; color: #334155;">{{ a.category }}</span>
+                  <span class="alert-subject">{{ a.subject_name }}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: #64748b;">
+                  <strong>Month:</strong> {{ a.period_month }} &bull; 
+                  <span style="text-transform: capitalize;">{{ a.subject_type }}</span>
+                </div>
+              </div>
+
+              <!-- Explanation Sentence -->
+              <p class="alert-explanation">{{ a.explanation }}</p>
+
+              <!-- Formula Box with Substituted Numbers and Threshold -->
+              <div class="alert-formula-box">
+                <div style="margin-bottom: 4px;">
+                  <strong>Trigger Values:</strong> 
+                  {% for k, v in a.trigger_values.items() %}
+                    <span style="margin-right: 12px;"><code>{{ k }}</code>: <strong>{{ v }}</strong></span>
+                  {% endfor %}
+                </div>
+                <div>
+                  <strong>Threshold Applied:</strong> 
+                  {% for tk, tv in a.threshold_json.items() %}
+                    <span style="margin-right: 12px;"><code>{{ tk }}</code>: {{ tv }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Recommendation -->
+              <div class="alert-recommendation">
+                <strong>Recommended Action:</strong> {{ a.recommendation }}
+              </div>
+
+              <!-- Related Alerts Link (Deduplicated across rules for same product/month) -->
+              {% if a.alert_id in related_map %}
+                <div style="margin-top: 10px; font-size: 0.78rem; color: #64748b; background: #fafafa; padding: 6px 10px; border-radius: 4px;">
+                  <strong>Related alerts for {{ a.subject_name }} in {{ a.period_month }}:</strong>
+                  {% for rel in related_map[a.alert_id] %}
+                    <a href="#alert-{{ rel.alert_id }}" style="color: var(--primary); font-weight: 600; text-decoration: underline; margin-left: 6px;">
+                      [{{ rel.rule_code }}] {{ rel.category }} ({{ rel.severity }})
+                    </a>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- "How Severity is Decided" Panel (Required by Section 5) -->
+  <div class="table-card" style="margin-top: 24px;">
+    <div class="table-header-bar" style="background: #f8fafc;">
+      <h3 class="table-title">📖 How Severity is Decided (Deterministic Matrix)</h3>
+      <span style="font-size: 0.78rem; color: #64748b;">Auditable classification rules applied consistently across all SKUs</span>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rule Code & Name</th>
+            <th>High Severity Condition</th>
+            <th>Medium Severity Condition</th>
+            <th>Low Severity Condition</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sr in severity_rules %}
+            <tr>
+              <td style="font-weight: 700;">{{ sr.rule }}</td>
+              <td style="color: var(--color-red); font-weight: 600;">{{ sr.high }}</td>
+              <td style="color: var(--color-amber); font-weight: 600;">{{ sr.medium }}</td>
+              <td style="color: var(--color-blue); font-weight: 600;">{{ sr.low }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Analytical Scope & Limitations Notice -->
+  <div class="limitations-box">
+    <div class="limitations-title">ℹ Analytical Scope & System Limitations Notice</div>
+    This is a rule-based analytics and decision-support system. Alerts indicate flagged historical patterns and potential operational loss risks for investigation; they are not guaranteed future loss predictions. Operating expenses are business-level overheads. Thresholds represent standard retail defaults and should be tuned to your store's margin requirements.
+  </div>
+
+{% endif %}
+{% endblock %}

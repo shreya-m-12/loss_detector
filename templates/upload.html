@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block page_title %}Upload Retail Data (Step 1 of 2: Staging & Validation){% endblock %}
+{% block page_subtitle %}Strict two-step audit pipeline: files are parsed, validated, and staged for your review before database commit.{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+  <!-- Upload Form Card -->
+  <div class="table-card" style="padding: 24px;">
+    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
+      Upload Store CSV Files
+    </h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+      Select your sales transactions and operating expenses CSV files. The engine will inspect every line, check mathematical consistency, and prepare a detailed validation audit before anything is written to MySQL.
+    </p>
+
+    <form action="{{ url_for('upload.index') }}" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">
+          Dataset Label / Batch Name
+        </label>
+        <input type="text" name="dataset_name" class="filter-input" style="width: 100%;" placeholder="e.g., Q3-Q4 2026 Audit Batch" required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <!-- Transactions file -->
+        <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 18px; text-align: center; background: #fafafa;">
+          <div style="font-size: 1.8rem; margin-bottom: 8px;">🛒</div>
+          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">1. transactions.csv</div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">One row per product sale line</p>
+          <input type="file" name="transactions_file" accept=".csv" required style="font-size: 0.8rem; width: 100%;">
+          <div style="margin-top: 10px;">
+            <a href="{{ url_for('upload.download_template', file_type='transactions') }}" style="font-size: 0.75rem; color: var(--primary); text-decoration: underline;">
+              Download Sample Template
+            </a>
+          </div>
+        </div>
+
+        <!-- Expenses file -->
+        <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 18px; text-align: center; background: #fafafa;">
+          <div style="font-size: 1.8rem; margin-bottom: 8px;">📑</div>
+          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">2. expenses.csv</div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">Rent, salaries, electricity, etc.</p>
+          <input type="file" name="expenses_file" accept=".csv" required style="font-size: 0.8rem; width: 100%;">
+          <div style="margin-top: 10px;">
+            <a href="{{ url_for('upload.download_template', file_type='expenses') }}" style="font-size: 0.75rem; color: var(--primary); text-decoration: underline;">
+              Download Sample Template
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <span style="font-size: 0.78rem; color: var(--text-muted);">Max file size: 5 MB &bull; UTF-8 or Windows CP-1252</span>
+        <button type="submit" class="btn btn-primary btn-lg">
+          Upload & Review Validations →
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Built-in Demo Loader & Architecture Notes -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    <!-- Demo Dataset Card -->
+    <div class="table-card" style="padding: 20px; background: #f0fdfa; border-color: #99f6e4;">
+      <h4 style="font-size: 0.95rem; font-weight: 700; color: #0f766e; margin-bottom: 6px;">
+        ⭐ Quick Demo: Load Verified Dataset
+      </h4>
+      <p style="font-size: 0.8rem; color: #115e59; line-height: 1.45; margin-bottom: 14px;">
+        Want to test immediately? Load our built-in 6-month retail dataset (May - Oct 2026) featuring real Indian grocery items, designed rule cases (R1-R6), and negative controls.
+      </p>
+      <form action="{{ url_for('upload.load_sample') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-primary" style="width: 100%; background: #0f766e;">
+          Load 6-Month Demo Dataset
+        </button>
+      </form>
+    </div>
+
+    <!-- Two-File Contract Explanation -->
+    <div class="table-card" style="padding: 20px;">
+      <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
+        Why Two Separate Files?
+      </h4>
+      <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 10px;">
+        Keeping transactions and operating expenses in separate tables prevents monthly overheads (like monthly store rent or electricity) from being duplicated across thousands of SKU sale rows, eliminating double-counting errors.
+      </p>
+      <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
+        Validation Enforcements:
+      </h4>
+      <ul style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; padding-left: 18px;">
+        <li>Strict ISO YYYY-MM-DD date format.</li>
+        <li>Mathematical consistency: <code>quantity * price - discount == sales_revenue</code>.</li>
+        <li>No negative values or returns (strictly positive quantity).</li>
+        <li>Inventory snapshot captures closing stock without sum distortions.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
